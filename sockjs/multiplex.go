@@ -87,14 +87,20 @@ func (this *ConnectionMultiplexer) subscribeClient(conn Conn, channel_name strin
 }
 
 func (this *Channel) Broadcast(message string) {
+	// attempt to broadcast to all connected clients, if a client is unreachable, drop them
 	for client, _ := range this.clients {
-		go this.SendToClient(client, message)
+		defer func() {
+			if r:= recover(); r!=nil {			
+				delete(this.clients, client)
+			}
+		}()
+		this.SendToClient(client, message)
 	}
 }
 
 func (this *Channel) SendToClient(client Conn, message string) {	
 	message = strconv.Quote(strings.Join([]string{`msg`, this.Name, message}, ","))
-	go client.WriteMessage([]byte(message))
+	client.WriteMessage([]byte(message))
 }
 
 func (this *Channel) SubscribeClient(conn Conn) {
